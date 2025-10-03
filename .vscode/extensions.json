@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "timonwong.shellcheck",
+    "streetsidesoftware.code-spell-checker",
+  ]
+}
+/* vim: set filetype=javascript ts=2 sw=2 expandtab : */

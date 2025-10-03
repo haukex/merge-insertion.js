@@ -1,0 +1,50 @@
+{
+  "name": "merge-insertion",
+  "version": "0.1.0",
+  "description": "The merge-insertion sort (aka the Ford-Johnson algorithm) is optimized for using few comparisons.",
+  "author": {
+    "name": "Hauke D",
+    "email": "haukex@zero-g.net"
+  },
+  "license": "ISC",
+  "repository": { "type": "git", "url": "https://github.com/haukex/merge-insertion.js.git" },
+  "bugs": { "url": "https://github.com/haukex/merge-insertion.js/issues" },
+  "type": "module",
+  "main": "dist/merge-insertion.js",
+  "types": "dist/merge-insertion.d.ts",
+  "scripts": {
+    "clean": "git clean -dxf -e node_modules",
+    "docs": "bash dev/make-readme.sh",
+    "test": "eslint && jest",
+    "prepublish": "tsc && npm run docs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@stylistic/eslint-plugin": "^5.4.0",
+    "eslint": "^9.36.0",
+    "jest": "^29.4.3",
+    "ts-jest": "^29.4.3",
+    "typedoc": "^0.28.13",
+    "typedoc-plugin-markdown": "^4.9.0",
+    "typedoc-plugin-rename-defaults": "^0.7.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.45.0"
+  },
+  "jest": {
+      "projects": [
+          {
+              "displayName": "test",
+              "preset": "ts-jest"
+          }
+      ],
+      "collectCoverage": true,
+      "coverageThreshold": {
+          "global": {
+              "functions": 100,
+              "lines": 100,
+              "statements": 100,
+              "branches": 100
+          }
+      }
+  }
+}

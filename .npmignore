@@ -1,0 +1,7 @@
+/.vscode/
+/.github/
+/dev/
+/coverage/
+/*.tgz
+__tests__/
+/eslint.config.js
