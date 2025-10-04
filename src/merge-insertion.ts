@@ -56,7 +56,7 @@ export function* _groupSizes() :Generator<number, never, never> {
   }
 }
 
-/** Helper function for `mergeInsertionSort` to group and reorder items to be inserted via binary search.
+/** Helper function to group and reorder items to be inserted via binary search.
  * @internal */
 export function _makeGroups<T>(items :ReadonlyArray<T>) :[idx :number, item :T][] {
   // See the description in `_fordJohnson`.
@@ -75,11 +75,17 @@ export function _makeGroups<T>(items :ReadonlyArray<T>) :[idx :number, item :T][
 }
 
 /** Helper function to insert an item into a sorted array via binary search.
+ *
+ * @param array The array into which to insert, is modified in place.
+ * @param right The rightmost index of the range into which to insert, inclusive.
+ * @param item The item to insert.
+ * @param comparator The comparator to use.
  * @internal */
 export async function _binInsert<T extends NonNullable<unknown>>(
   array :T[], right :number, item :T, comparator :Comparator<T>
 ) :Promise<void> {
   for (const e of array) if (e==item) throw new Error('item is already in target array')
+  if (right < 0) throw new Error('right index may not be negative')
   //console.debug('insert',item,'into',array)
   let l = 0, r = Math.min(right, array.length-1)
   while (l <= r) {
@@ -98,7 +104,7 @@ export async function _binInsert<T extends NonNullable<unknown>>(
 }
 
 /** Wrap a comparator in a version that caches the comparisons.
- * TODO: I don't think this should be necessary; I think the correct solution is optimizing my `_binInsert`?
+ * See GH#1: I don't think this should be necessary; I think the correct solution is optimizing my `_binInsert`?
  * @internal */
 export function _cachedComparator<T extends NonNullable<unknown>>(comp :Comparator<T>) :Comparator<T> {
   const cache :Map<T, Map<T, 0|1>> = new Map()

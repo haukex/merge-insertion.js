@@ -73,6 +73,7 @@ test('_binInsert', async () => {
   expect( await helper(5,'K') ).toStrictEqual(['B','D','F','H','K','J'])
   expect( await helper(5,'M') ).toStrictEqual(['B','D','F','H','M','J'])
   await expect( helper(5,'J') ).rejects.toThrow('already in')
+  await expect( _binInsert(['A'], -1, 'B', ([a,b]) => Promise.resolve(a>b?0:1)) ).rejects.toThrow('negative')
 })
 
 function testComparator<T extends NonNullable<unknown>>(comp :Comparator<T>, maxCalls :number) :Comparator<T> {
