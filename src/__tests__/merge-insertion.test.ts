@@ -56,25 +56,36 @@ test('_cachedComparator', async () => {
 })
 
 test('_binInsert', async () => {
-  const helper = async (len :number, item :string) => {
-    //        A B C D E F G H I J K
-    const a = ['B','D','F','H','J'].slice(0,len)
-    await _binInsert(a, 3, item, ([a,b]) => Promise.resolve(a>b?0:1))
+  await expect( _binInsert(['A'], -1, 'B', ([a,b]) => Promise.resolve(a>b?0:1)) ).rejects.toThrow('negative')
+  const helper = async (len :number, right :number, item :string) => {
+    //        A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+    const a = ['B','D','F','H','J','L','N','P','R','T','V','X','Z'].slice(0,len)
+    await _binInsert(a, right, item, ([a,b]) => Promise.resolve(a>b?0:1))
     return a
   }
-  expect( await helper(0,'A') ).toStrictEqual(['A'])
-  expect( await helper(1,'A') ).toStrictEqual(['A','B'])
-  expect( await helper(1,'C') ).toStrictEqual(['B','C'])
-  expect( await helper(2,'A') ).toStrictEqual(['A','B','D'])
-  expect( await helper(2,'C') ).toStrictEqual(['B','C','D'])
-  expect( await helper(2,'E') ).toStrictEqual(['B','D','E'])
-  expect( await helper(5,'A') ).toStrictEqual(['A','B','D','F','H','J'])
-  expect( await helper(5,'E') ).toStrictEqual(['B','D','E','F','H','J'])
-  expect( await helper(5,'I') ).toStrictEqual(['B','D','F','H','I','J'])
-  expect( await helper(5,'K') ).toStrictEqual(['B','D','F','H','K','J'])
-  expect( await helper(5,'M') ).toStrictEqual(['B','D','F','H','M','J'])
-  await expect( helper(5,'J') ).rejects.toThrow('already in')
-  await expect( _binInsert(['A'], -1, 'B', ([a,b]) => Promise.resolve(a>b?0:1)) ).rejects.toThrow('negative')
+  expect( await helper(0,3,'A') ).toStrictEqual(['A'])
+  expect( await helper(1,3,'A') ).toStrictEqual(['A','B'])
+  expect( await helper(1,3,'C') ).toStrictEqual(['B','C'])
+  expect( await helper(2,3,'A') ).toStrictEqual(['A','B','D'])
+  expect( await helper(2,3,'C') ).toStrictEqual(['B','C','D'])
+  expect( await helper(2,3,'E') ).toStrictEqual(['B','D','E'])
+
+  expect( await helper(5,3,'A') ).toStrictEqual(['A','B','D','F','H','J'])
+  expect( await helper(5,3,'E') ).toStrictEqual(['B','D','E','F','H','J'])
+  expect( await helper(5,3,'I') ).toStrictEqual(['B','D','F','H','I','J'])
+  expect( await helper(5,3,'K') ).toStrictEqual(['B','D','F','H','K','J'])
+  expect( await helper(5,3,'M') ).toStrictEqual(['B','D','F','H','M','J'])
+  await expect( helper(5,3,'J') ).rejects.toThrow('already in')
+  expect( await helper(5,10,'K') ).toStrictEqual(['B','D','F','H','J','K'])
+  expect( await helper(5,10,'M') ).toStrictEqual(['B','D','F','H','J','M'])
+
+  expect( await helper(6,10,'A') ).toStrictEqual(['A','B','D','F','H','J','L'])
+  expect( await helper(6,10,'G') ).toStrictEqual(['B','D','F','G','H','J','L'])
+  expect( await helper(6,10,'M') ).toStrictEqual(['B','D','F','H','J','L','M'])
+
+  expect( await helper(7,10,'A') ).toStrictEqual(['A','B','D','F','H','J','L','N'])
+  expect( await helper(7,10,'G') ).toStrictEqual(['B','D','F','G','H','J','L','N'])
+  expect( await helper(7,10,'O') ).toStrictEqual(['B','D','F','H','J','L','N','O'])
 })
 
 function testComparator<T extends NonNullable<unknown>>(comp :Comparator<T>, maxCalls :number) :Comparator<T> {
