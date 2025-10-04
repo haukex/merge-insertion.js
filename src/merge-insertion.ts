@@ -105,12 +105,11 @@ export function _cachedComparator<T extends NonNullable<unknown>>(comp :Comparat
   return async ([a,b]) => {
     if (cache.has(a) && cache.get(a)!.has(b))
       return Promise.resolve(cache.get(a)!.get(b)!)
+    if (cache.has(b) && cache.get(b)!.has(a))
+      return Promise.resolve(cache.get(b)!.get(a)! ? 0 : 1)
     const rv = await comp([a, b])
     if (cache.has(a)) cache.get(a)!.set(b, rv)
     else cache.set(a, new Map([[b, rv]]))
-    const rvr = rv ? 0 : 1
-    if (cache.has(b)) cache.get(b)!.set(a, rvr)
-    else cache.set(b, new Map([[a, rvr]]))
     return rv
   }
 }

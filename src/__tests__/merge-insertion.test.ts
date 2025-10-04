@@ -43,15 +43,15 @@ test('_makeGroups', async () => {
 
 test('_cachedComparator', async () => {
   const calls :[string, string][] = []
-  const comp :Comparator<string> = _cachedComparator(async ([a,b]) => { calls.push([a,b]); return 0 })
+  const comp :Comparator<string> = _cachedComparator(async ([a,b]) => { calls.push([a,b]); return a>b?1:0 })
   expect( await comp(['x','y']) ).toStrictEqual(0)
   expect( await comp(['x','z']) ).toStrictEqual(0)
   expect( await comp(['x','y']) ).toStrictEqual(0)
   expect( await comp(['x','z']) ).toStrictEqual(0)
-  expect( await comp(['i','j']) ).toStrictEqual(0)
   expect( await comp(['j','i']) ).toStrictEqual(1)
+  expect( await comp(['i','j']) ).toStrictEqual(0)
   expect( await comp(['y','x']) ).toStrictEqual(1)
-  expect(calls).toStrictEqual([ ['x','y'],['x','z'],['i','j'] ])
+  expect(calls).toStrictEqual([ ['x','y'],['x','z'],['j','i'] ])
 })
 
 test('_binInsert', async () => {
