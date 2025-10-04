@@ -222,13 +222,14 @@ export function mergeInsertionMaxComparisons(n :number) :number {
     + Math.floor(Math.log2(6*n)/2) ) : 0
 }
 
-// This is here because it is used in the tests of this module.
+/* ***** The following are here because they is used in the tests of this module. ***** */
+
 /** Generates permutations with [Heap's algorithm](https://en.wikipedia.org/wiki/Heap%27s_algorithm) (non-recursive).
  *
  * @typeParam T The type of the items to permute.
  * @param array The list of items to permute.
  * @returns A generator that returns the permutations.
- */
+ * @internal */
 export function* permutations<T>(array :Readonly<T[]>) :Generator<T[]> {
   const c :number[] = array.map(_=>0)
   const a = Array.from(array)
@@ -242,5 +243,33 @@ export function* permutations<T>(array :Readonly<T[]>) :Generator<T[]> {
       c[i]!++
       i = 1
     } else c[i++] = 0
+  }
+}
+
+/** Marsaglia, G. (2003). Xorshift RNGs. Journal of Statistical Software, 8(14), 1–6. https://doi.org/10.18637/jss.v008.i14
+ * @internal */
+export function* xorshift32() :Generator<number, never, never> {
+  let y = BigInt(2463534242)
+  while (true) {
+    y ^= y << BigInt(13)
+    y = BigInt.asUintN(32, y)
+    y ^= y >> BigInt(17)
+    y ^= y << BigInt(5)
+    y = BigInt.asUintN(32, y)
+    yield Number(y)
+  }
+}
+
+/** In-place Fisher-Yates[1] shuffle, modern Durstenfeld[2] version.
+ *
+ * 1. Fisher, R. A., & Yates, F. (1948). Statistical tables for biological, agricultural and medical research (3rd ed., rev. and enl). Oliver and Boyd.
+ * 2. Durstenfeld, R. (1964). Algorithm 235: Random permutation. Communications of the ACM, 7(7), 420. doi:10.1145/364520.364540
+ *
+ * @internal */
+export function fisherYates(array :unknown[], random :Generator<number>|undefined = undefined) {
+  if (random===undefined) random = xorshift32()
+  for (let i=array.length-1; i>0; i--) {
+    const j = random.next().value % array.length;
+    [array[i], array[j]] = [array[j], array[i]]
   }
 }

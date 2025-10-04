@@ -100,36 +100,6 @@ Async comparison function.
 
 The array sorted in ascending order.
 
-***
-
-### permutations()
-
-> **permutations**\<`T`\>(`array`): `Generator`\<`T`[]\>
-
-Generates permutations with [Heap's algorithm](https://en.wikipedia.org/wiki/Heap%27s_algorithm) (non-recursive).
-
-#### Type Parameters
-
-##### T
-
-`T`
-
-The type of the items to permute.
-
-#### Parameters
-
-##### array
-
-readonly `T`[]
-
-The list of items to permute.
-
-#### Returns
-
-`Generator`\<`T`[]\>
-
-A generator that returns the permutations.
-
 Author, Copyright and License
 -----------------------------
 
