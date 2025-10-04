@@ -1,6 +1,6 @@
 # https://bit.ly/cffinit
 cff-version: 1.2.0
-title: Merge-Insertion Sort a.k.a Ford-Johnson Algorithm
+title: Merge-Insertion Sort a.k.a. Ford-Johnson Algorithm
 message: If you use this software, please cite it using the metadata from this file.
 type: software
 authors:
