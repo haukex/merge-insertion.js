@@ -14,7 +14,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-import mergeInsertionSort, { _binInsert, _groupSizes, _makeGroups, Comparator, mergeInsertionMaxComparisons, permutations } from '../merge-insertion'
+import mergeInsertionSort, { _binInsert, _cachedComparator, _groupSizes, _makeGroups, Comparator, mergeInsertionMaxComparisons, permutations } from '../merge-insertion'
 import { expect, test } from '@jest/globals'
 
 test('smoke', async () => {
@@ -42,7 +42,16 @@ test('_makeGroups', async () => {
 })
 
 test('_cachedComparator', async () => {
-  //TODO NEXT
+  const calls :[string, string][] = []
+  const comp :Comparator<string> = _cachedComparator(async ([a,b]) => { calls.push([a,b]); return 0 })
+  expect( await comp(['x','y']) ).toStrictEqual(0)
+  expect( await comp(['x','z']) ).toStrictEqual(0)
+  expect( await comp(['x','y']) ).toStrictEqual(0)
+  expect( await comp(['x','z']) ).toStrictEqual(0)
+  expect( await comp(['i','j']) ).toStrictEqual(0)
+  expect( await comp(['j','i']) ).toStrictEqual(1)
+  expect( await comp(['y','x']) ).toStrictEqual(1)
+  expect(calls).toStrictEqual([ ['x','y'],['x','z'],['i','j'] ])
 })
 
 test('_binInsert', async () => {
