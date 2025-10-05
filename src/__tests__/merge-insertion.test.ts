@@ -219,7 +219,7 @@ test('_binInsertIdx', async () => {
   expect(log).toStrictEqual([['O','H'],['O','L'],['O','N']])
 })
 
-function testComp<T extends Comparable>(comp :Comparator<T>, maxCalls :number, log :[T,T][]|undefined = undefined) :Comparator<T> {
+function testComp<T extends Comparable>(c :Comparator<T>, maxCalls :number, log :[T,T][]|undefined = undefined) :Comparator<T> {
   let callCount = 0
   const pairMap :Map<T, Map<T, null>> = new Map()
   return async ([a,b]) => {
@@ -230,12 +230,10 @@ function testComp<T extends Comparable>(comp :Comparator<T>, maxCalls :number, l
       throw new Error(`duplicate comparison of '${a}' and '${b}'`)
     if (pairMap.has(a)) pairMap.get(a)?.set(b, null)
     else pairMap.set(a, new Map([[b, null]]))
-    if (log!==undefined) log.push([a,b])
     if (++callCount > maxCalls)
-      // See GH#1: I think the correct solution is optimizing my `_binInsert`?
-      console.warn('too many Comparator calls',callCount)
-      //TODO: Reenable: throw new Error(`too many Comparator calls (${callCount})`)
-    return await comp([a,b])
+      throw new Error(`too many Comparator calls (${callCount})`)
+    if (log!==undefined) log.push([a,b])
+    return await c([a,b])
   }
 }
 
@@ -248,8 +246,8 @@ test('testComp', async () => {
   await expect( c(['y','x']) ).rejects.toThrow('duplicate comparison')
   await expect( c(['x','y']) ).rejects.toThrow('duplicate comparison')
   await expect( c(['x','z']) ).rejects.toThrow('duplicate comparison')
+  await expect( c(['i','j']) ).rejects.toThrow('too many')
   expect(log).toStrictEqual([['x','y'],['x','z']])
-  //TODO: Reenable: await expect( comp(['i','j']) ).rejects.toThrow('too many')
 })
 
 test('xorshift32', () => {
@@ -287,32 +285,56 @@ describe('mergeInsertionSort', () => {
     await expect( mergeInsertionSort(['A','B','B'], comp) ).rejects.toThrow('duplicate')
   })
 
-  const lengthTable = Array.from({ length: 101 }, (_,i) => ({ len: i }))
-  test.each(lengthTable)('array length $len', async ({len}) => {
+  test('detailed comparisons', async () => {
+    const log :[string,string][] = []
+    expect( await mergeInsertionSort(['A','B','C','D','E'], testComp(comp, 7, log)) ).toStrictEqual(['A','B','C','D','E'])
+    expect( log ).toStrictEqual([
+      /* According to Knuth, the following is from: Demuth, H. B. (1956). Electronic Data Sorting [PhD thesis, Stanford University].
+       * First, make and compare the pairs:
+       *  larger:  B  D  (main chain)
+       * smaller:  A  C  leftover: E  */
+      ['A','B'], ['C','D'],
+      // Next, recursively sort the main chain
+      ['B','D'],
+      /* Next, the smaller item of the first pair on the main chain can be moved to the main chain:
+       * main chain:   A  B  D
+       *    smaller:         C  leftover: E
+       * And E can be inserted among A B D with two comparisons: */
+      ['E','B'],['E','D'],
+      // Finally, C can be inserted into E A B, A E B, A B E, or A B (in our case the latter) with two more comparisons:
+      ['C','A'],['C','B'],
+    ])
+  })
+
+  test.each( Array.from({ length: 101 }, (_, i) => ({ len: i })) )('array length $len', async ({len}) => {
     const array :Readonly<string[]> = Array.from({ length: len }, (_,i) => String.fromCharCode(65 + i))
     const a = Array.from(array)
-    // in order array
-    expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
-    // reverse order
-    a.reverse()
-    expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
-    // a few shuffles
-    for (let i=0;i<10;i++) {
-      fisherYates(a)
+    try {
+      // in order array
       expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
+      // reverse order
+      a.reverse()
+      expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
+      // a few shuffles
+      for (let i=0;i<10;i++) {
+        fisherYates(a)
+        expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
+      }
+    } catch (ex) {
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      throw new Error(`'${ex}' on ${a.join('')}`)
     }
   })
 
-  // 6! = 720, 7! = 5040, 8! = 40320, 9! = 362880 - already takes a fair amount of time, so don't increase this!
-  const permTable = Array.from({ length: 8 }, (_,i) => ({ len: i }))
-  test.each(permTable)('all permutations of length $len', async ({len}) => {
+  // 6! = 720, 7! = 5040, 8! = 40320, 9! = 362880 - Be very careful with increasing this!
+  test.each( Array.from({ length: 8 }, (_, i) => ({ len: i })) )('all perms of length $len', async ({len}) => {
     const array :Readonly<string[]> = Array.from({ length: len }, (_,i) => String.fromCharCode(65 + i))
     for (const perm of permutations(array))
       try {
         expect( await mergeInsertionSort(perm, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
       } catch (ex) {
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        throw new Error(`${ex} on ${perm.join('')}`)
+        throw new Error(`'${ex}' on ${perm.join('')}`)
       }
   })
 

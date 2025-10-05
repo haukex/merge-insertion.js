@@ -37,9 +37,6 @@
 /** Turns on debugging output. */
 const DEBUG :boolean = false
 
-/* istanbul ignore next */
-function assert(condition: unknown, msg?: string): asserts condition { if (!condition) throw new Error(msg) }
-
 /** A type of object that can be compared by a `Comparator` and therefore sorted by `mergeInsertionSort`.
  * Must have sensible support for the equality operators. */
 export type Comparable = NonNullable<unknown>
@@ -100,7 +97,6 @@ export async function _binInsertIdx<T extends Comparable>(array :ReadonlyArray<T
     if (c) r = m - 1
     else l = m + 1
   }
-  assert(l>=0 && l<=array.length)  // paranoia
   /* istanbul ignore next */ if (DEBUG) console.debug('binary insert',item,'into',array,
     // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
     l===0?'at start':l===array.length?'at end':`before ${array[l]}`)
@@ -145,7 +141,7 @@ export default async function mergeInsertionSort<T extends Comparable>(array :Re
 
   /* 4. Insert at the start of the sorted sequence the element that was paired with
    *    the first and smallest element of the sorted sequence. */
-  assert(mainChain.length>0)  // Known due to the special cases at the beginning of this function.
+  // Note that we know the main chain has at least one item here due to the special cases at the beginning of this function.
   mainChain.unshift({ item: mainChain[0]!.smaller! })
   delete mainChain[1]!.smaller
   /* istanbul ignore next */ if (DEBUG) console.debug('step 4: first pair', mainChain)
@@ -168,7 +164,8 @@ export default async function mergeInsertionSort<T extends Comparable>(array :Re
    * to step 4 above, the item that would have been labeled y₁ has actually already become element x₁, and
    * therefore the element that would have been x₁ is now x₂ and no longer has a paired yᵢ element. It
    * follows that the first paired elements are x₃ and y₃, and so the first unsorted element to be inserted
-   * into the output sequence is y₃.
+   * into the output sequence is y₃. Also noteworthy is that if the input had an odd number of elements,
+   * the leftover unpaired element is treated as the last yᵢ element.
    *
    * ² In my opinion, this is lacking detail, and this seems to be true for the other two sources (Ford-Johnson
    * and Knuth) as well. So here is my attempt at adding more details to the explanation: The "main chain" is
@@ -177,39 +174,43 @@ export default async function mergeInsertionSort<T extends Comparable>(array :Re
    * with the various descriptions is that they don't explicitly explain that the insertion process shifts all
    * the indices of the array, and due to the nonlinear insertion order, this makes it tricky to keep track of
    * the correct array indices over which to perform the insertion search. So instead, below, I use a linear
-   * search to find the main chain item being operated on each time, which is expensive, but much easier.
+   * search to find the main chain item being operated on each time, which is expensive, but much easier. It
+   * should also be noted that the leftover unpaired element, if there is one, gets inserted across the whole
+   * main chain as it exists at the time of its insertion - because it may not be inserted last.
    */
 
-  /* Build the groups to be inserted (explained above), skipping the already handled first two items.
-   * (In the current implementation we don't need the original indices.) */
-  const groups = _makeGroups(mainChain.slice(2)).map(g=>g[1])
+  // Build the groups to be inserted (explained above), skipping the already handled first two items.
+  const toInsert = mainChain.slice(2)
+  /* If there was a leftover item from an odd input length, treat it as the last "smaller" item (special handling below).
+   * We'll use the fact that at this point, all items in `toInsert` have their `.smaller` property set, so we'll mark
+   * the leftover item as a special case by it not having its `.smaller` set. */
+  if (array.length%2) toInsert.push({ item: array[array.length - 1]! })
+  // In the current implementation we don't need the original indices.
+  const groups = _makeGroups(toInsert).map(g=>g[1])
   /* istanbul ignore next */ if (DEBUG) console.debug('step pre5: groups',groups)
 
   for (const pair of groups) {
-    assert(pair.smaller!=undefined)
-    // Locate the pair we're about to insert in the main chain, to limit the extent of the binary search (see also explanation above).
-    const pairIdx = mainChain.findIndex(v => Object.is(v, pair))
-    // Locate the index in the main chain where the pair's smaller item needs to be inserted, and insert it.
-    const insertIdx = await _binInsertIdx(mainChain.slice(0,pairIdx).map(p => p.item), pair.smaller, comparator)
-    /* istanbul ignore next */ if (DEBUG) console.debug('will insert',pair,'at index',insertIdx)
-    mainChain.splice(insertIdx, 0, { item: pair.smaller })
+    // Determine which item to insert and where.
+    const [insertItem, insertIdx] :[T, number] = await (async () => {
+      if (pair.smaller===undefined)  // see explanation above
+        // This is the leftover item, it gets inserted into the whole main chain.
+        return [pair.item, await _binInsertIdx(mainChain.map(p => p.item), pair.item, comparator)]
+      else {
+        // Locate the pair we're about to insert in the main chain, to limit the extent of the binary search (see also explanation above).
+        const pairIdx = mainChain.findIndex(v => Object.is(v, pair))
+        // Locate the index in the main chain where the pair's smaller item needs to be inserted, and insert it.
+        return [pair.smaller, await _binInsertIdx(mainChain.slice(0,pairIdx).map(p => p.item), pair.smaller, comparator)]
+      }
+    })()
+    // Actually do the insertion.
+    mainChain.splice(insertIdx, 0, { item: insertItem })
     delete pair.smaller
-    /* istanbul ignore next */ if (DEBUG) console.debug('main chain is now',mainChain)
+    /* istanbul ignore next */ if (DEBUG) console.debug('inserted',insertItem,'at index',insertIdx,'main chain is now',mainChain)
   }
 
+  /* istanbul ignore next */ if (DEBUG) console.debug('fordJohnson done', mainChain)
   // Turn the "main chain" data structure back into an array of values.
-  const results = mainChain.map( pair => { assert(pair.smaller===undefined); return pair.item } )
-
-  // If there was a leftover item from an odd input length, insert that last.
-  if (array.length%2) {
-    const item = array[array.length-1]!
-    const idx = await _binInsertIdx(results, item, comparator)
-    /* istanbul ignore next */ if (DEBUG) console.debug('inserting odd item',item,'at',idx)
-    results.splice(idx, 0, item)
-  }
-
-  /* istanbul ignore next */ if (DEBUG) console.debug('fordJohnson done', results)
-  return results
+  return mainChain.map( pair => pair.item )
 }
 
 /** Returns the maximum number of comparisons that `mergeInsertionSort` will perform depending on the input length `n`.
