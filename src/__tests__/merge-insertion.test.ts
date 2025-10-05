@@ -53,27 +53,169 @@ test('_binInsertIdx', async () => {
   //        A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
   const a = ['B','D','F','H','J','L','N','P','R','T','V','X','Z']
 
-  expect( await _binInsertIdx([],        'A', comp) ).toStrictEqual(0)
-  expect( await _binInsertIdx(['B'],     'A', comp) ).toStrictEqual(0)
-  expect( await _binInsertIdx(['B'],     'C', comp) ).toStrictEqual(1)
-  expect( await _binInsertIdx(['B','D'], 'A', comp) ).toStrictEqual(0)
-  expect( await _binInsertIdx(['B','D'], 'C', comp) ).toStrictEqual(1)
-  expect( await _binInsertIdx(['B','D'], 'E', comp) ).toStrictEqual(2)
-
-  expect( await _binInsertIdx(a.slice(0,5), 'A', comp) ).toStrictEqual(0)
-  expect( await _binInsertIdx(a.slice(0,5), 'E', comp) ).toStrictEqual(2)
-  expect( await _binInsertIdx(a.slice(0,5), 'I', comp) ).toStrictEqual(4)
-  expect( await _binInsertIdx(a.slice(0,5), 'K', comp) ).toStrictEqual(5)
-  expect( await _binInsertIdx(a.slice(0,5), 'M', comp) ).toStrictEqual(5)
   await expect( _binInsertIdx(a.slice(0,5), 'J', comp) ).rejects.toThrow('already in')
 
-  expect( await _binInsertIdx(a.slice(0,6), 'A', comp) ).toStrictEqual(0)
-  expect( await _binInsertIdx(a.slice(0,6), 'G', comp) ).toStrictEqual(3)
-  expect( await _binInsertIdx(a.slice(0,6), 'M', comp) ).toStrictEqual(6)
+  expect( await _binInsertIdx([],        'A', testComp(comp,0)) ).toStrictEqual(0)
+  expect( await _binInsertIdx(['B'],     'A', testComp(comp,1)) ).toStrictEqual(0)
+  expect( await _binInsertIdx(['B'],     'C', testComp(comp,1)) ).toStrictEqual(1)
 
-  expect( await _binInsertIdx(a.slice(0,7), 'A', comp) ).toStrictEqual(0)
-  expect( await _binInsertIdx(a.slice(0,7), 'G', comp) ).toStrictEqual(3)
-  expect( await _binInsertIdx(a.slice(0,7), 'O', comp) ).toStrictEqual(7)
+  /* while L ≤ R:
+   *   M = L + floor( (R - L) / 2 )
+   *   if T < A[M] then:  R = M − 1
+   *   else:  L = M + 1  */
+  const log :[string,string][] = []
+
+  /* A into B D
+   * L  R  M  =>
+   * 0  1  0  A < B
+   * 0 -1     ins L=0  */
+  expect( await _binInsertIdx(['B','D'], 'A', testComp(comp,1,log)) ).toStrictEqual(0)
+  expect(log).toStrictEqual([['A','B']])
+
+  log.length = 0
+  /* C into B D
+   * L  R  M  =>
+   * 0  1  0  C > B
+   * 1  1  1  C < D
+   * 1  0     ins L=1  */
+  expect( await _binInsertIdx(['B','D'], 'C', testComp(comp,2,log)) ).toStrictEqual(1)
+  expect(log).toStrictEqual([['C','B'],['C','D']])
+
+  log.length = 0
+  /* E into B D
+   * L  R  M  =>
+   * 0  1  0  E > B
+   * 1  1  1  E > D
+   * 2  1     ins L=2  */
+  expect( await _binInsertIdx(['B','D'], 'E', testComp(comp,2,log)) ).toStrictEqual(2)
+  expect(log).toStrictEqual([['E','B'],['E','D']])
+
+  log.length = 0
+  /* A into B D F H J
+   * L  R  M  =>
+   * 0  4  2  A < F
+   * 0  1  0  A < B
+   * 0 -1     ins L=0  */
+  expect( await _binInsertIdx(a.slice(0,5), 'A', testComp(comp,2,log)) ).toStrictEqual(0)
+  expect(log).toStrictEqual([['A','F'],['A','B']])
+
+  log.length = 0
+  /* C into B D F H J
+   * L  R  M  =>
+   * 0  4  2  C < F
+   * 0  1  0  C > B
+   * 1  1  1  C < D
+   * 1  0     ins L=1  */
+  expect( await _binInsertIdx(a.slice(0,5), 'C', testComp(comp,3,log)) ).toStrictEqual(1)
+  expect(log).toStrictEqual([['C','F'],['C','B'],['C','D']])
+
+  log.length = 0
+  /* E into B D F H J
+   * L  R  M  =>
+   * 0  4  2  E < F
+   * 0  1  0  E > B
+   * 1  1  1  E > D
+   * 2  1     ins L=2  */
+  expect( await _binInsertIdx(a.slice(0,5), 'E', testComp(comp,3,log)) ).toStrictEqual(2)
+  expect(log).toStrictEqual([['E','F'],['E','B'],['E','D']])
+
+  log.length = 0
+  /* G into B D F H J
+   * L  R  M  =>
+   * 0  4  2  G > F
+   * 3  4  3  G < H
+   * 3  2     ins L=3  */
+  expect( await _binInsertIdx(a.slice(0,5), 'G', testComp(comp,2,log)) ).toStrictEqual(3)
+  expect(log).toStrictEqual([['G','F'],['G','H']])
+
+  log.length = 0
+  /* I into B D F H J
+   * L  R  M  =>
+   * 0  4  2  I > F
+   * 3  4  3  I > H
+   * 4  4  4  I < J
+   * 4  3     ins L=4  */
+  expect( await _binInsertIdx(a.slice(0,5), 'I', testComp(comp,3,log)) ).toStrictEqual(4)
+  expect(log).toStrictEqual([['I','F'],['I','H'],['I','J']])
+
+  log.length = 0
+  /* K into B D F H J
+   * L  R  M  =>
+   * 0  4  2  K > F
+   * 3  4  3  K > H
+   * 4  4  4  K > J
+   * 5  4     ins L=5  */
+  expect( await _binInsertIdx(a.slice(0,5), 'K', testComp(comp,3,log)) ).toStrictEqual(5)
+  expect(log).toStrictEqual([['K','F'],['K','H'],['K','J']])
+
+  log.length = 0
+  /* M into B D F H J
+   * L  R  M  =>
+   * 0  4  2  M > F
+   * 3  4  3  M > H
+   * 4  4  4  M > J
+   * 5  4     ins L=5  */
+  expect( await _binInsertIdx(a.slice(0,5), 'M', testComp(comp,3,log)) ).toStrictEqual(5)
+  expect(log).toStrictEqual([['M','F'],['M','H'],['M','J']])
+
+  log.length = 0
+  /* A into B D F H J L
+   * L  R  M  =>
+   * 0  5  2  A < F
+   * 0  1  0  A < B
+   * 0 -1     ins L=0  */
+  expect( await _binInsertIdx(a.slice(0,6), 'A', testComp(comp,2,log)) ).toStrictEqual(0)
+  expect(log).toStrictEqual([['A','F'],['A','B']])
+
+  log.length = 0
+  /* G into B D F H J L
+   * L  R  M  =>
+   * 0  5  2  G > F
+   * 3  5  4  G < J
+   * 3  3  3  G < H
+   * 3  2     ins L=3  */
+  expect( await _binInsertIdx(a.slice(0,6), 'G', testComp(comp,3,log)) ).toStrictEqual(3)
+  expect(log).toStrictEqual([['G','F'],['G','J'],['G','H']])
+
+  log.length = 0
+  /* M into B D F H J L
+   * L  R  M  =>
+   * 0  5  2  M > F
+   * 3  5  4  M > J
+   * 5  5  5  M > L
+   * 6  5     ins L=6  */
+  expect( await _binInsertIdx(a.slice(0,6), 'M', testComp(comp,3,log)) ).toStrictEqual(6)
+  expect(log).toStrictEqual([['M','F'],['M','J'],['M','L']])
+
+  log.length = 0
+  /* A into B D F H J L N
+   * L  R  M  =>
+   * 0  6  3  A < H
+   * 0  2  1  A < D
+   * 0  0  0  A < B
+   * 0 -1     ins L=0  */
+  expect( await _binInsertIdx(a.slice(0,7), 'A', testComp(comp,3,log)) ).toStrictEqual(0)
+  expect(log).toStrictEqual([['A','H'],['A','D'],['A','B']])
+
+  log.length = 0
+  /* G into B D F H J L N
+   * L  R  M  =>
+   * 0  6  3  G < H
+   * 0  2  1  G > D
+   * 2  2  2  G > F
+   * 3  2     ins L=3  */
+  expect( await _binInsertIdx(a.slice(0,7), 'G', testComp(comp,3,log)) ).toStrictEqual(3)
+  expect(log).toStrictEqual([['G','H'],['G','D'],['G','F']])
+
+  log.length = 0
+  /* O into B D F H J L N
+   * L  R  M  =>
+   * 0  6  3  O > H
+   * 4  6  5  O > L
+   * 6  6  6  O > N
+   * 7  6     ins L=7  */
+  expect( await _binInsertIdx(a.slice(0,7), 'O', testComp(comp,3,log)) ).toStrictEqual(7)
+  expect(log).toStrictEqual([['O','H'],['O','L'],['O','N']])
 })
 
 function testComp<T extends Comparable>(comp :Comparator<T>, maxCalls :number, log :[T,T][]|undefined = undefined) :Comparator<T> {

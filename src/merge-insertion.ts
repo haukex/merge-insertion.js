@@ -94,7 +94,7 @@ export async function _binInsertIdx<T extends Comparable>(array :ReadonlyArray<T
   /* istanbul ignore next */ if (DEBUG) console.debug('binary insert',item,'into',array)
   let l = 0, r = array.length-1
   while (l <= r) {
-    const m = Math.floor((l+r)/2)
+    const m = l + Math.floor((r-l)/2)
     const c = await comparator([item, array[m]!])
     /* istanbul ignore next */ if (DEBUG) console.debug('left',l,'mid',m,'right',r,'item',item,c?'<':'>','array[m]',array[m])
     if (c) r = m - 1
