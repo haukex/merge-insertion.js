@@ -14,11 +14,11 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-import mergeInsertionSort, { _binInsertIdx, _groupSizes, _makeGroups, Comparable, Comparator,
+import { mergeInsertionSort, _binInsertIdx, _groupSizes, _makeGroups, Comparable, Comparator,
   fisherYates, mergeInsertionMaxComparisons, permutations, xorshift32 } from '../merge-insertion'
 import { describe, expect, test } from '@jest/globals'
 
-const comp :Comparator<string> = ([a,b]) => Promise.resolve(a>b?0:1)
+const comp :Comparator<string> = async ([a, b]) => a > b ? 0 : 1
 
 test('smoke', async () => {
   expect( await mergeInsertionSort(['D','E','A','C','F','B','G'],
@@ -54,13 +54,14 @@ test('_binInsertIdx', async () => {
   //        A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
   const a = ['B','D','F','H','J','L','N','P','R','T','V','X','Z']
 
-  await expect( _binInsertIdx(a.slice(0,5), 'J', comp) ).rejects.toThrow('already in')
+  await expect( _binInsertIdx(a, 'J', comp) ).rejects.toThrow('already in')
 
-  expect( await _binInsertIdx([],        'A', testComp(comp,0)) ).toStrictEqual(0)
-  expect( await _binInsertIdx(['B'],     'A', testComp(comp,1)) ).toStrictEqual(0)
-  expect( await _binInsertIdx(['B'],     'C', testComp(comp,1)) ).toStrictEqual(1)
+  expect( await _binInsertIdx([],    'A', testComp(comp,0)) ).toStrictEqual(0)
+  expect( await _binInsertIdx(['B'], 'A', testComp(comp,1)) ).toStrictEqual(0)
+  expect( await _binInsertIdx(['B'], 'C', testComp(comp,1)) ).toStrictEqual(1)
 
-  /* while L ≤ R:
+  /* Adapted from <https://en.wikipedia.org/wiki/Binary_search>:
+   * while L ≤ R:
    *   M = L + floor( (R - L) / 2 )
    *   if T < A[M] then:  R = M − 1
    *   else:  L = M + 1  */
@@ -232,7 +233,7 @@ function testComp<T extends Comparable>(c :Comparator<T>, maxCalls :number, log 
     else pairMap.set(a, new Map([[b, null]]))
     if (++callCount > maxCalls)
       throw new Error(`too many Comparator calls (${callCount})`)
-    if (log!==undefined) log.push([a,b])
+    if (log!=undefined) log.push([a,b])
     return await c([a,b])
   }
 }
@@ -312,11 +313,12 @@ describe('mergeInsertionSort', () => {
     try {
       // in order array
       expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
+      if (len<2) return
       // reverse order
       a.reverse()
       expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
-      // a few shuffles
-      for (let i=0;i<10;i++) {
+      // several shuffles
+      for (let i=0;i<100;i++) {
         fisherYates(a)
         expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
       }
@@ -326,8 +328,8 @@ describe('mergeInsertionSort', () => {
     }
   })
 
-  // 6! = 720, 7! = 5040, 8! = 40320, 9! = 362880 - Be very careful with increasing this!
-  test.each( Array.from({ length: 8 }, (_, i) => ({ len: i })) )('all perms of length $len', async ({len}) => {
+  // 6! = 720, 7! = 5040, 8! = 40320, 9! = 362880, 10! = 3628800 - Be very careful with increasing this!
+  test.each( Array.from({ length: 9 }, (_, i) => ({ len: i })) )('all perms of length $len', async ({len}) => {
     const array :Readonly<string[]> = Array.from({ length: len }, (_,i) => String.fromCharCode(65 + i))
     for (const perm of permutations(array))
       try {
@@ -338,7 +340,7 @@ describe('mergeInsertionSort', () => {
       }
   })
 
-})
+})  // describe('mergeInsertionSort', ...)
 
 test('mergeInsertionMaxComparisons', () => {
   // <https://oeis.org/A001768>: "Sorting numbers: number of comparisons for merge insertion sort of n elements." (plus 0=0)

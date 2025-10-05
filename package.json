@@ -1,9 +1,9 @@
 {
   "name": "merge-insertion",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "The merge-insertion sort (aka the Ford-Johnson algorithm) is optimized for using few comparisons.",
   "author": {
-    "name": "Hauke D",
+    "name": "Hauke Dämpfling",
     "email": "haukex@zero-g.net"
   },
   "license": "ISC",

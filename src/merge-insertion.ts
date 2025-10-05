@@ -1,6 +1,5 @@
-/**
- * Merge-Insertion Sort a.k.a. Ford-Johnson Algorithm
- * ==================================================
+/** Merge-Insertion Sort a.k.a. Ford-Johnson Algorithm
+ * ===================================================
  *
  * The Ford-Johnson algorithm[1], also known as the merge-insertion sort[2,3] uses the minimum
  * number of possible comparisons for lists of 22 items or less, and at the time of writing has
@@ -8,9 +7,24 @@
  * for cases where comparisons are expensive, such as user input, and the API is implemented to
  * take an async comparator function for this reason.
  *
+ * ### Example
+ *
+ * ```typescript
+ * import { mergeInsertionSort, Comparator } from 'merge-insertion'
+ *
+ * // A Comparator should return 0 if the first item is larger, or 1 if the second item is larger.
+ * const comp :Comparator<string> = async ([a, b]) => a > b ? 0 : 1
+ *
+ * // Sort five items in ascending order with a maximum of only seven comparisons:
+ * const sorted = await mergeInsertionSort(['D', 'A', 'B', 'E', 'C'], comp)
+ * ```
+ *
+ * ### References
+ *
  * 1. Ford, L. R., & Johnson, S. M. (1959). A Tournament Problem.
  *    The American Mathematical Monthly, 66(5), 387–389. <https://doi.org/10.1080/00029890.1959.11989306>
- * 2. Knuth, D. E. (1998). The Art of Computer Programming: Volume 3: Sorting and Searching (2nd ed.). Addison-Wesley.
+ * 2. Knuth, D. E. (1998). The Art of Computer Programming: Volume 3: Sorting and Searching (2nd ed.).
+ *    Addison-Wesley. <https://cs.stanford.edu/~knuth/taocp.html#vol3>
  * 3. <https://en.wikipedia.org/wiki/Merge-insertion_sort>
  *
  * Author, Copyright and License
@@ -37,7 +51,7 @@
 /** Turns on debugging output. */
 const DEBUG :boolean = false
 
-/** A type of object that can be compared by a `Comparator` and therefore sorted by `mergeInsertionSort`.
+/** A type of object that can be compared by a {@link Comparator} and therefore sorted by {@link mergeInsertionSort}.
  * Must have sensible support for the equality operators. */
 export type Comparable = NonNullable<unknown>
 
@@ -48,7 +62,7 @@ export type Comparable = NonNullable<unknown>
  */
 export type Comparator<T extends Comparable> = (ab :Readonly<[a :T, b :T]>) => Promise<0|1>
 
-/** Helper that generates the group sizes for `_makeGroups`.
+/** Helper that generates the group sizes for {@link _makeGroups}.
  * @internal */
 export function* _groupSizes() :Generator<number, never, never> {
   // <https://en.wikipedia.org/wiki/Merge-insertion_sort>:
@@ -63,20 +77,20 @@ export function* _groupSizes() :Generator<number, never, never> {
 }
 
 /** Helper function to group and reorder items to be inserted via binary search.
+ * See also the description in the code of {@link mergeInsertionSort}.
  * @internal */
 export function _makeGroups<T>(array :ReadonlyArray<T>) :[origIdx :number, item :T][] {
-  // See the description in `_fordJohnson`.
   const items :ReadonlyArray<[number, T]> = array.map((e,i) => [i, e])
   const rv :[number,T][] = []
   const gen = _groupSizes()
   let i = 0
   while (true) {
-    const curGroupSize = gen.next().value
-    const curGroup = items.slice(i, i+curGroupSize)
-    curGroup.reverse()
-    rv.push(...curGroup)
-    if (curGroup.length < curGroupSize) break
-    i += curGroupSize
+    const size = gen.next().value
+    const group = items.slice(i, i+size)
+    group.reverse()
+    rv.push(...group)
+    if (group.length < size) break
+    i += size
   }
   return rv
 }
@@ -84,22 +98,21 @@ export function _makeGroups<T>(array :ReadonlyArray<T>) :[origIdx :number, item 
 /** Helper function to insert an item into a sorted array via binary search.
  * @returns The index **before** which to insert the new item, e.g. `array.splice(index, 0, item)`.
  * @internal */
-export async function _binInsertIdx<T extends Comparable>(array :ReadonlyArray<T>, item :T, comparator :Comparator<T>) :Promise<number> {
-  for (const e of array) if (e===item) throw new Error('item is already in target array')
-  if (array.length<1) { return 0 }
-  if (array.length==1) { return await comparator([ item, array[0]! ]) ? 0 : 1 }
+export async function _binInsertIdx<T extends Comparable>(array :ReadonlyArray<T>, item :T, comp :Comparator<T>) :Promise<number> {
+  if (array.length<1) return 0
+  if (array.indexOf(item)>=0) throw new Error('item is already in target array')
+  if (array.length==1) return await comp([ item, array[0]! ]) ? 0 : 1
   /* istanbul ignore next */ if (DEBUG) console.debug('binary insert',item,'into',array)
   let l = 0, r = array.length-1
   while (l <= r) {
     const m = l + Math.floor((r-l)/2)
-    const c = await comparator([item, array[m]!])
+    const c = await comp([item, array[m]!])
     /* istanbul ignore next */ if (DEBUG) console.debug('left',l,'mid',m,'right',r,'item',item,c?'<':'>','array[m]',array[m])
     if (c) r = m - 1
     else l = m + 1
   }
-  /* istanbul ignore next */ if (DEBUG) console.debug('binary insert',item,'into',array,
-    // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
-    l===0?'at start':l===array.length?'at end':`before ${array[l]}`)
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+  /* istanbul ignore next */ if (DEBUG) console.debug('insert', l===0?'at start':l===array.length?'at end':`before [${l}] '${array[l]}'`)
   return l
 }
 
@@ -108,9 +121,9 @@ export async function _binInsertIdx<T extends Comparable>(array :ReadonlyArray<T
  * @typeParam T The type of the items to sort.
  * @param array Array of to sort. Duplicate items are not allowed.
  * @param comparator Async comparison function.
- * @returns A shallow copy of the array sorted in ascending order.
+ * @returns A Promise resolving to a shallow copy of the array sorted in ascending order.
  */
-export default async function mergeInsertionSort<T extends Comparable>(array :ReadonlyArray<T>, comparator :Comparator<T>) :Promise<T[]> {
+export async function mergeInsertionSort<T extends Comparable>(array :ReadonlyArray<T>, comparator :Comparator<T>) :Promise<T[]> {
   if (array.length<1) return []
   if (array.length==1) return Array.from(array)
   if (array.length != new Set(array).size) throw new Error('array may not contain duplicate items')
@@ -155,9 +168,9 @@ export default async function mergeInsertionSort<T extends Comparable>(array :Re
    * b. Order the un-inserted elements by their groups (smaller indexes to larger indexes), but within each
    *    group order them from larger indexes to smaller indexes. Thus, the ordering becomes:
    *      y₄, y₃, y₆, y₅, y₁₂, y₁₁, y₁₀, y₉, y₈, y₇, y₂₂, y₂₁, ...
-   * c. Use this ordering to insert the elements yᵢ into the output sequence². For each element yᵢ,
+   * c. Use this ordering to insert the elements yᵢ into the output sequence. For each element yᵢ,
    *    use a binary search from the start of the output sequence up to but not including xᵢ to determine
-   *    where to insert yᵢ.
+   *    where to insert yᵢ.²
    *
    * ¹ My explanation: The items already in the sorted output sequence (the larger elements of each pair) are
    * labeled xᵢ and the yet unsorted (smaller) elements are labeled yᵢ, with i starting at 1. However, due
@@ -176,24 +189,26 @@ export default async function mergeInsertionSort<T extends Comparable>(array :Re
    * the correct array indices over which to perform the insertion search. So instead, below, I use a linear
    * search to find the main chain item being operated on each time, which is expensive, but much easier. It
    * should also be noted that the leftover unpaired element, if there is one, gets inserted across the whole
-   * main chain as it exists at the time of its insertion - because it may not be inserted last.
+   * main chain as it exists at the time of its insertion - it may not be inserted last. So even though there
+   * is still some optimization potential, this algorithm is used in cases where the comparisons are much more
+   * expensive than the rest of the algorithm, so the cost is acceptable for now.
    */
 
   // Build the groups to be inserted (explained above), skipping the already handled first two items.
   const toInsert = mainChain.slice(2)
-  /* If there was a leftover item from an odd input length, treat it as the last "smaller" item (special handling below).
-   * We'll use the fact that at this point, all items in `toInsert` have their `.smaller` property set, so we'll mark
-   * the leftover item as a special case by it not having its `.smaller` set. */
+  /* If there was a leftover item from an odd input length, treat it as the last "smaller" item. We'll use the
+   * fact that at this point, all items in `toInsert` have their `.smaller` property set, so we'll mark the
+   * leftover item as a special case by storing it in `.item` and it not having its `.smaller` set. */
   if (array.length%2) toInsert.push({ item: array[array.length - 1]! })
-  // In the current implementation we don't need the original indices.
+  // Make the groups; in the current implementation we don't need the original indices returned here.
   const groups = _makeGroups(toInsert).map(g=>g[1])
   /* istanbul ignore next */ if (DEBUG) console.debug('step pre5: groups',groups)
 
   for (const pair of groups) {
     // Determine which item to insert and where.
     const [insertItem, insertIdx] :[T, number] = await (async () => {
-      if (pair.smaller===undefined)  // see explanation above
-        // This is the leftover item, it gets inserted into the whole main chain.
+      if (pair.smaller===undefined)  // See explanation of this special case above.
+        // This is the leftover item, it gets inserted into the current whole main chain.
         return [pair.item, await _binInsertIdx(mainChain.map(p => p.item), pair.item, comparator)]
       else {
         // Locate the pair we're about to insert in the main chain, to limit the extent of the binary search (see also explanation above).
@@ -213,7 +228,7 @@ export default async function mergeInsertionSort<T extends Comparable>(array :Re
   return mainChain.map( pair => pair.item )
 }
 
-/** Returns the maximum number of comparisons that `mergeInsertionSort` will perform depending on the input length `n`.
+/** Returns the maximum number of comparisons that {@link mergeInsertionSort} will perform depending on the input length.
  *
  * @param n The number of items in the list to be sorted.
  * @returns The expected maximum number of comparisons.
@@ -274,7 +289,7 @@ export function* xorshift32() :Generator<number, never, never> {
  * 2. Durstenfeld, R. (1964). Algorithm 235: Random permutation. Communications of the ACM, 7(7), 420. doi:10.1145/364520.364540
  *
  * @param random Generator that returns random integers in the range `0` (inclusive) and `>= array.length-1`.
- *  The default is `xorshift32` - which may not return integers big enough for very large arrays!
+ *  The default is {@link xorshift32} - which may not return integers big enough for very large arrays!
  * @internal */
 export function fisherYates(array :unknown[], random :Generator<number> = xorshift32()) {
   for (let i=array.length-1; i>0; i--) {

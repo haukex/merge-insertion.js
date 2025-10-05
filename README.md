@@ -1,5 +1,5 @@
 Merge-Insertion Sort a.k.a. Ford-Johnson Algorithm
-==================================================
+===================================================
 
 The Ford-Johnson algorithm[1], also known as the merge-insertion sort[2,3] uses the minimum
 number of possible comparisons for lists of 22 items or less, and at the time of writing has
@@ -7,9 +7,24 @@ the fewest comparisons known for lists of 46 items or less. It is therefore very
 for cases where comparisons are expensive, such as user input, and the API is implemented to
 take an async comparator function for this reason.
 
+### Example
+
+```typescript
+import { mergeInsertionSort, Comparator } from 'merge-insertion'
+
+// A Comparator should return 0 if the first item is larger, or 1 if the second item is larger.
+const comp :Comparator<string> = async ([a, b]) => a > b ? 0 : 1
+
+// Sort five items in ascending order with a maximum of only seven comparisons:
+const sorted = await mergeInsertionSort(['D', 'A', 'B', 'E', 'C'], comp)
+```
+
+### References
+
 1. Ford, L. R., & Johnson, S. M. (1959). A Tournament Problem.
    The American Mathematical Monthly, 66(5), 387–389. <https://doi.org/10.1080/00029890.1959.11989306>
-2. Knuth, D. E. (1998). The Art of Computer Programming: Volume 3: Sorting and Searching (2nd ed.). Addison-Wesley.
+2. Knuth, D. E. (1998). The Art of Computer Programming: Volume 3: Sorting and Searching (2nd ed.).
+   Addison-Wesley. <https://cs.stanford.edu/~knuth/taocp.html#vol3>
 3. <https://en.wikipedia.org/wiki/Merge-insertion_sort>
 
 ## Type Aliases
@@ -18,7 +33,7 @@ take an async comparator function for this reason.
 
 > **Comparable** = `NonNullable`\<`unknown`\>
 
-A type of object that can be compared by a `Comparator` and therefore sorted by `mergeInsertionSort`.
+A type of object that can be compared by a [Comparator](#comparator) and therefore sorted by [mergeInsertionSort](#mergeinsertionsort).
 Must have sensible support for the equality operators.
 
 ***
@@ -55,7 +70,7 @@ Must return a Promise resolving to 0 if the first item is ranked higher, or 1 if
 
 > **mergeInsertionMaxComparisons**(`n`): `number`
 
-Returns the maximum number of comparisons that `mergeInsertionSort` will perform depending on the input length `n`.
+Returns the maximum number of comparisons that [mergeInsertionSort](#mergeinsertionsort) will perform depending on the input length.
 
 #### Parameters
 
@@ -105,7 +120,7 @@ Async comparison function.
 
 `Promise`\<`T`[]\>
 
-A shallow copy of the array sorted in ascending order.
+A Promise resolving to a shallow copy of the array sorted in ascending order.
 
 Author, Copyright and License
 -----------------------------
