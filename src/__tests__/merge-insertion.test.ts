@@ -18,9 +18,11 @@ import mergeInsertionSort, { _binInsertIdx, _groupSizes, _makeGroups, Comparable
   fisherYates, mergeInsertionMaxComparisons, permutations, xorshift32 } from '../merge-insertion'
 import { describe, expect, test } from '@jest/globals'
 
+const comp :Comparator<string> = ([a,b]) => Promise.resolve(a>b?0:1)
+
 test('smoke', async () => {
   expect( await mergeInsertionSort(['D','E','A','C','F','B','G'],
-    testComp(([a,b]) => Promise.resolve(a>b?0:1), mergeInsertionMaxComparisons(7))) )
+    testComp(comp, mergeInsertionMaxComparisons(7))) )
     .toStrictEqual(['A','B','C','D','E','F','G'])
 })
 
@@ -49,7 +51,6 @@ test('_makeGroups', () => {
 })
 
 test('_binInsertIdx', async () => {
-  const comp :Comparator<string> = ([a,b]) => Promise.resolve(a > b ? 0 : 1)
   //        A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
   const a = ['B','D','F','H','J','L','N','P','R','T','V','X','Z']
 
@@ -240,13 +241,13 @@ function testComp<T extends Comparable>(comp :Comparator<T>, maxCalls :number, l
 
 test('testComp', async () => {
   const log :[string,string][] = []
-  const comp = testComp(async _ab=>0, 2, log)
-  await comp(['x','y'])
-  await comp(['x','z'])
-  await expect( comp(['x','x']) ).rejects.toThrow('may not be equal')
-  await expect( comp(['y','x']) ).rejects.toThrow('duplicate comparison')
-  await expect( comp(['x','y']) ).rejects.toThrow('duplicate comparison')
-  await expect( comp(['x','z']) ).rejects.toThrow('duplicate comparison')
+  const c = testComp(async _ab=>0, 2, log)
+  await c(['x','y'])
+  await c(['x','z'])
+  await expect( c(['x','x']) ).rejects.toThrow('may not be equal')
+  await expect( c(['y','x']) ).rejects.toThrow('duplicate comparison')
+  await expect( c(['x','y']) ).rejects.toThrow('duplicate comparison')
+  await expect( c(['x','z']) ).rejects.toThrow('duplicate comparison')
   expect(log).toStrictEqual([['x','y'],['x','z']])
   //TODO: Reenable: await expect( comp(['i','j']) ).rejects.toThrow('too many')
 })
@@ -280,15 +281,16 @@ describe('fisherYates', () => {
   })
 })
 
-test('mergeInsertionSort', async () => {
-  const comp :Comparator<string> = ([a,b]) => Promise.resolve(a>b?0:1)
-  await expect( mergeInsertionSort(['A','B','B'], comp) ).rejects.toThrow('duplicate')
+describe('mergeInsertionSort', () => {
 
-  // Test many array lengths
-  for (let len=0; len<100; len++) {
+  test('errors', async () => {
+    await expect( mergeInsertionSort(['A','B','B'], comp) ).rejects.toThrow('duplicate')
+  })
+
+  const lengthTable = Array.from({ length: 101 }, (_,i) => ({ len: i }))
+  test.each(lengthTable)('array length $len', async ({len}) => {
     const array :Readonly<string[]> = Array.from({ length: len }, (_,i) => String.fromCharCode(65 + i))
     const a = Array.from(array)
-    //try {  //TODO: use describe() or perhaps test.each to add context to test cases
     // in order array
     expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
     // reverse order
@@ -299,24 +301,21 @@ test('mergeInsertionSort', async () => {
       fisherYates(a)
       expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
     }
-    //} catch (ex) {
-    //  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    //  throw new Error(`${ex} on ${a}`)
-    //}
-  }
+  })
 
-  // Test all permutations
   // 6! = 720, 7! = 5040, 8! = 40320, 9! = 362880 - already takes a fair amount of time, so don't increase this!
-  for (let len=0; len<8; len++) {
+  const permTable = Array.from({ length: 8 }, (_,i) => ({ len: i }))
+  test.each(permTable)('all permutations of length $len', async ({len}) => {
     const array :Readonly<string[]> = Array.from({ length: len }, (_,i) => String.fromCharCode(65 + i))
     for (const perm of permutations(array))
-      // try {
-      expect( await mergeInsertionSort(perm, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
-      // } catch (ex) {
-      //  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      //  throw new Error(`${ex} on ${perm}`)
-      //}
-  }
+      try {
+        expect( await mergeInsertionSort(perm, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
+      } catch (ex) {
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        throw new Error(`${ex} on ${perm.join('')}`)
+      }
+  })
+
 })
 
 test('mergeInsertionMaxComparisons', () => {
