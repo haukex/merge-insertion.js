@@ -34,20 +34,29 @@
 
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
-/** A function to compare two items.
+/** Turns on debugging output. */
+const DEBUG :boolean = false
+
+/* istanbul ignore next */
+function assert(condition: unknown, msg?: string): asserts condition { if (!condition) throw new Error(msg) }
+
+/** A type of object that can be compared by a `Comparator` and therefore sorted by `mergeInsertionSort`.
+ * Must have sensible support for the equality operators. */
+export type Comparable = NonNullable<unknown>
+
+/** A user-supplied function to compare two items.
  *
- * @typeParam T The type that this comparator can compare, which must have sensible support for the equality operators.
  * @param ab A tuple of the two items to be compared; they must not be equal.
  * @returns Must return a Promise resolving to 0 if the first item is ranked higher, or 1 if the second item is ranked higher.
  */
-export type Comparator<T extends NonNullable<unknown>> = (ab :Readonly<[a :T, b :T]>) => Promise<0|1>
+export type Comparator<T extends Comparable> = (ab :Readonly<[a :T, b :T]>) => Promise<0|1>
 
-/** Helper function to generate the group sizes for `_makeGroups`.
+/** Helper that generates the group sizes for `_makeGroups`.
  * @internal */
 export function* _groupSizes() :Generator<number, never, never> {
-  // https://en.wikipedia.org/wiki/Merge-insertion_sort :
+  // <https://en.wikipedia.org/wiki/Merge-insertion_sort>:
   // "... the sums of sizes of every two adjacent groups form a sequence of powers of two."
-  // https://oeis.org/A014113 : a(0) = 0 and if n>=1, a(n) = 2^n - a(n-1).
+  // <https://oeis.org/A014113>: a(0) = 0 and if n>=1, a(n) = 2^n - a(n-1).
   let prev = 0
   for (let i=1; ; i++) {
     const cur = 2**i - prev
@@ -58,14 +67,15 @@ export function* _groupSizes() :Generator<number, never, never> {
 
 /** Helper function to group and reorder items to be inserted via binary search.
  * @internal */
-export function _makeGroups<T>(items :ReadonlyArray<T>) :[idx :number, item :T][] {
+export function _makeGroups<T>(array :ReadonlyArray<T>) :[origIdx :number, item :T][] {
   // See the description in `_fordJohnson`.
+  const items :ReadonlyArray<[number, T]> = array.map((e,i) => [i, e])
+  const rv :[number,T][] = []
   const gen = _groupSizes()
   let i = 0
-  const rv :[number,T][] = []
   while (true) {
     const curGroupSize = gen.next().value
-    const curGroup :[number,T][] = items.slice(i, i+curGroupSize).map((e,j) => [j+i+3,e])
+    const curGroup = items.slice(i, i+curGroupSize)
     curGroup.reverse()
     rv.push(...curGroup)
     if (curGroup.length < curGroupSize) break
@@ -75,49 +85,26 @@ export function _makeGroups<T>(items :ReadonlyArray<T>) :[idx :number, item :T][
 }
 
 /** Helper function to insert an item into a sorted array via binary search.
- *
- * @param array The array into which to insert, is modified in place.
- * @param right The rightmost index of the range into which to insert, inclusive.
- * @param item The item to insert.
- * @param comparator The comparator to use.
+ * @returns The index **before** which to insert the new item, e.g. `array.splice(index, 0, item)`.
  * @internal */
-export async function _binInsert<T extends NonNullable<unknown>>(
-  array :T[], right :number, item :T, comparator :Comparator<T>
-) :Promise<void> {
-  for (const e of array) if (e==item) throw new Error('item is already in target array')
-  if (right < 0) throw new Error('right index may not be negative')
-  //console.debug('insert',item,'into',array)
-  let l = 0, r = Math.min(right, array.length-1)
+export async function _binInsertIdx<T extends Comparable>(array :ReadonlyArray<T>, item :T, comparator :Comparator<T>) :Promise<number> {
+  for (const e of array) if (e===item) throw new Error('item is already in target array')
+  if (array.length<1) { return 0 }
+  if (array.length==1) { return await comparator([ item, array[0]! ]) ? 0 : 1 }
+  /* istanbul ignore next */ if (DEBUG) console.debug('binary insert',item,'into',array)
+  let l = 0, r = array.length-1
   while (l <= r) {
     const m = Math.floor((l+r)/2)
-    if (await comparator([ item, array[m]! ])) {
-      //console.debug('left',l,'mid',m,'right',r,'comp',item,'<',array[m],'so move right down')
-      r = m - 1
-    }
-    else {
-      //console.debug('left',l,'mid',m,'right',r,'comp',item,'>',array[m],'so move left up')
-      l = m + 1
-    }
+    const c = await comparator([item, array[m]!])
+    /* istanbul ignore next */ if (DEBUG) console.debug('left',l,'mid',m,'right',r,'item',item,c?'<':'>','array[m]',array[m])
+    if (c) r = m - 1
+    else l = m + 1
   }
-  array.splice(l, 0, item)
-  //console.debug('inserted',item,'before',l,'resulting in',array)
-}
-
-/** Wrap a comparator in a version that caches the comparisons.
- * See GH#1: I don't think this should be necessary; I think the correct solution is optimizing my `_binInsert`?
- * @internal */
-export function _cachedComparator<T extends NonNullable<unknown>>(comp :Comparator<T>) :Comparator<T> {
-  const cache :Map<T, Map<T, 0|1>> = new Map()
-  return async ([a,b]) => {
-    if (cache.has(a) && cache.get(a)!.has(b))
-      return Promise.resolve(cache.get(a)!.get(b)!)
-    if (cache.has(b) && cache.get(b)!.has(a))
-      return Promise.resolve(cache.get(b)!.get(a)! ? 0 : 1)
-    const rv = await comp([a, b])
-    if (cache.has(a)) cache.get(a)!.set(b, rv)
-    else cache.set(a, new Map([[b, rv]]))
-    return rv
-  }
+  assert(l>=0 && l<=array.length)  // paranoia
+  /* istanbul ignore next */ if (DEBUG) console.debug('binary insert',item,'into',array,
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+    l===0?'at start':l===array.length?'at end':`before ${array[l]}`)
+  return l
 }
 
 /** Merge-Insertion Sort (Ford-Johnson algorithm) with async comparison.
@@ -125,27 +112,17 @@ export function _cachedComparator<T extends NonNullable<unknown>>(comp :Comparat
  * @typeParam T The type of the items to sort.
  * @param array Array of to sort. Duplicate items are not allowed.
  * @param comparator Async comparison function.
- * @returns The array sorted in ascending order.
+ * @returns A shallow copy of the array sorted in ascending order.
  */
-export default async function mergeInsertionSort<T extends NonNullable<unknown>>(
-  array :ReadonlyArray<T>, comparator :Comparator<T>
-) :Promise<T[]> {
-  return _mergeInsertionSort(array, _cachedComparator(comparator))
-}
-
-/** @internal */
-async function _mergeInsertionSort<T extends NonNullable<unknown>>(
-  array :ReadonlyArray<T>, comparator :Comparator<T>
-) :Promise<T[]> {
+export default async function mergeInsertionSort<T extends Comparable>(array :ReadonlyArray<T>, comparator :Comparator<T>) :Promise<T[]> {
   if (array.length<1) return []
   if (array.length==1) return Array.from(array)
   if (array.length != new Set(array).size) throw new Error('array may not contain duplicate items')
   if (array.length==2) return await comparator([array[0]!, array[1]!]) ? Array.from(array) : [array[1]!, array[0]!]
-  //console.debug('fordJohnson start', array)
+  /* istanbul ignore next */ if (DEBUG) console.debug('fordJohnson start', array)
 
-  /* Algorithm description adapted from https://en.wikipedia.org/wiki/Merge-insertion_sort :
-   * 1. Group the items into ⌊n/2⌋ pairs of elements, arbitrarily, leaving one element unpaired if there is
-   *    an odd number of elements (this last part is actually handled below).
+  /* Algorithm description adapted and expanded from <https://en.wikipedia.org/wiki/Merge-insertion_sort>:
+   * 1. Group the items into ⌊n/2⌋ pairs of elements, arbitrarily, leaving one element unpaired if there is an odd number of elements.
    * 2. Perform ⌊n/2⌋ comparisons, one per pair, to determine the larger of the two elements in each pair. */
   const pairs :Map<T, T> = new Map()  // keys are the larger items, values the smaller ones
   for ( let i=0; i<array.length-1; i+=2 ) {
@@ -154,54 +131,84 @@ async function _mergeInsertionSort<T extends NonNullable<unknown>>(
     else
       pairs.set(array[i]!, array[i+1]!)
   }
-  //console.debug('step 1+2: pairs', pairs)
+  /* istanbul ignore next */ if (DEBUG) console.debug('step 1+2: pairs', pairs)
 
   /* 3. Recursively sort the ⌊n/2⌋ larger elements from each pair, creating an initial sorted output sequence
    *    of ⌊n/2⌋ of the input elements, in ascending order, using the merge-insertion sort. */
-  const results = await _mergeInsertionSort(Array.from(pairs.keys()), comparator)
-  //console.debug('step 3: sorted larger items', results)
+  const larger = await mergeInsertionSort(Array.from(pairs.keys()), comparator)
+  /* istanbul ignore next */ if (DEBUG) console.debug('step 3: larger items sorted',larger)
+
+  // Build the "main chain" data structure we will use to insert items into (explained a bit more below).
+  interface SortingPair { item :T; smaller ?:T }
+  const mainChain :SortingPair[] = larger.map( l => ({ item: l, smaller: pairs.get(l)! }) )
+  /* istanbul ignore next */ if (DEBUG) console.debug('step 3a: initial main chain',mainChain)
 
   /* 4. Insert at the start of the sorted sequence the element that was paired with
    *    the first and smallest element of the sorted sequence. */
-  results.unshift( pairs.get(results[0]!)! )
-  //console.debug('step 4: first pair', results)
+  assert(mainChain.length>0)  // Known due to the special cases at the beginning of this function.
+  mainChain.unshift({ item: mainChain[0]!.smaller! })
+  delete mainChain[1]!.smaller
+  /* istanbul ignore next */ if (DEBUG) console.debug('step 4: first pair', mainChain)
 
   /* 5. Insert the remaining ⌈n/2⌉−1 items that are not yet in the sorted output sequence into that sequence,
    *    one at a time, with a specially chosen insertion ordering, as follows:
    *
-   * Explanation: The items already in the sorted output sequence (the larger elements of each pair) are
-   * labeled xᵢ and the yet unsorted (smaller) elements are labeled yᵢ, with i starting at 1. However, due
-   * to step 4 above, the item that would have been labeled y₁ has actually already become element x₁, and
-   * therefore the element that would have been x₁ is now x₂ and no longer has a paired yᵢ element. It
-   * follows that the first paired elements are x₃ and y₃, and so the first unsorted element to be inserted
-   * into the output sequence is y₃. Also, if the number of items to be sorted is odd, the "leftover" item
-   * is placed at the end of the yᵢ items.
-   *
    * a. Partition the un-inserted elements yᵢ into groups with contiguous indexes.
-   *    There are two elements y₃ and y₄ in the first group, and the sums of sizes of every two adjacent
+   *    There are two elements y₃ and y₄ in the first group¹, and the sums of sizes of every two adjacent
    *    groups form a sequence of powers of two. Thus, the sizes of groups are: 2, 2, 6, 10, 22, 42, ...
    * b. Order the un-inserted elements by their groups (smaller indexes to larger indexes), but within each
    *    group order them from larger indexes to smaller indexes. Thus, the ordering becomes:
    *      y₄, y₃, y₆, y₅, y₁₂, y₁₁, y₁₀, y₉, y₈, y₇, y₂₂, y₂₁, ...
-   * c. Use this ordering to insert the elements yᵢ into the output sequence. For each element yᵢ,
+   * c. Use this ordering to insert the elements yᵢ into the output sequence². For each element yᵢ,
    *    use a binary search from the start of the output sequence up to but not including xᵢ to determine
    *    where to insert yᵢ.
+   *
+   * ¹ My explanation: The items already in the sorted output sequence (the larger elements of each pair) are
+   * labeled xᵢ and the yet unsorted (smaller) elements are labeled yᵢ, with i starting at 1. However, due
+   * to step 4 above, the item that would have been labeled y₁ has actually already become element x₁, and
+   * therefore the element that would have been x₁ is now x₂ and no longer has a paired yᵢ element. It
+   * follows that the first paired elements are x₃ and y₃, and so the first unsorted element to be inserted
+   * into the output sequence is y₃.
+   *
+   * ² In my opinion, this is lacking detail, and this seems to be true for the other two sources (Ford-Johnson
+   * and Knuth) as well. So here is my attempt at adding more details to the explanation: The "main chain" is
+   * always kept in sorted order, therefore, for each item of the main chain that has an associated `smaller`
+   * item, we know that this smaller item must be inserted *before* that main chain item. The problem I see
+   * with the various descriptions is that they don't explicitly explain that the insertion process shifts all
+   * the indices of the array, and due to the nonlinear insertion order, this makes it tricky to keep track of
+   * the correct array indices over which to perform the insertion search. So instead, below, I use a linear
+   * search to find the main chain item being operated on each time, which is expensive, but much easier.
    */
 
-  /* Skipping the smallest pair now at the beginning of the output sequence, get the remaining
-   * items to be sorted (the smaller of each pair), in order (y₃, y₄, y₅, ...). */
-  const remaining = results.slice(2).map( e => pairs.get(e)! )
-  // If there was a leftover item from an odd input length, append that now.
-  if (array.length%2) remaining.push(array[array.length-1]!)
-  //console.debug('step pre5: smaller items',remaining)
-  // Next, group and reorder the remaining items (steps a and b above).
-  const groups = _makeGroups(remaining)
-  //console.debug('step 5ab: groups',groups)
-  // And insert those remaining items using a binary search (step c above).
-  for (const [idx, item] of groups)
-    await _binInsert(results, idx-1, item, comparator)
+  /* Build the groups to be inserted (explained above), skipping the already handled first two items.
+   * (In the current implementation we don't need the original indices.) */
+  const groups = _makeGroups(mainChain.slice(2)).map(g=>g[1])
+  /* istanbul ignore next */ if (DEBUG) console.debug('step pre5: groups',groups)
 
-  //console.debug('fordJohnson done', results)
+  for (const pair of groups) {
+    assert(pair.smaller!=undefined)
+    // Locate the pair we're about to insert in the main chain, to limit the extent of the binary search (see also explanation above).
+    const pairIdx = mainChain.findIndex(v => Object.is(v, pair))
+    // Locate the index in the main chain where the pair's smaller item needs to be inserted, and insert it.
+    const insertIdx = await _binInsertIdx(mainChain.slice(0,pairIdx).map(p => p.item), pair.smaller, comparator)
+    /* istanbul ignore next */ if (DEBUG) console.debug('will insert',pair,'at index',insertIdx)
+    mainChain.splice(insertIdx, 0, { item: pair.smaller })
+    delete pair.smaller
+    /* istanbul ignore next */ if (DEBUG) console.debug('main chain is now',mainChain)
+  }
+
+  // Turn the "main chain" data structure back into an array of values.
+  const results = mainChain.map( pair => { assert(pair.smaller===undefined); return pair.item } )
+
+  // If there was a leftover item from an odd input length, insert that last.
+  if (array.length%2) {
+    const item = array[array.length-1]!
+    const idx = await _binInsertIdx(results, item, comparator)
+    /* istanbul ignore next */ if (DEBUG) console.debug('inserting odd item',item,'at',idx)
+    results.splice(idx, 0, item)
+  }
+
+  /* istanbul ignore next */ if (DEBUG) console.debug('fordJohnson done', results)
   return results
 }
 
@@ -222,7 +229,7 @@ export function mergeInsertionMaxComparisons(n :number) :number {
     + Math.floor(Math.log2(6*n)/2) ) : 0
 }
 
-/* ***** The following are here because they is used in the tests of this module. ***** */
+/* ***** The following are here because they are used in the tests of this module. ***** */
 
 /** Generates permutations with [Heap's algorithm](https://en.wikipedia.org/wiki/Heap%27s_algorithm) (non-recursive).
  *
@@ -265,9 +272,10 @@ export function* xorshift32() :Generator<number, never, never> {
  * 1. Fisher, R. A., & Yates, F. (1948). Statistical tables for biological, agricultural and medical research (3rd ed., rev. and enl). Oliver and Boyd.
  * 2. Durstenfeld, R. (1964). Algorithm 235: Random permutation. Communications of the ACM, 7(7), 420. doi:10.1145/364520.364540
  *
+ * @param random Generator that returns random integers in the range `0` (inclusive) and `>= array.length-1`.
+ *  The default is `xorshift32` - which may not return integers big enough for very large arrays!
  * @internal */
-export function fisherYates(array :unknown[], random :Generator<number>|undefined = undefined) {
-  if (random===undefined) random = xorshift32()
+export function fisherYates(array :unknown[], random :Generator<number> = xorshift32()) {
   for (let i=array.length-1; i>0; i--) {
     const j = random.next().value % array.length;
     [array[i], array[j]] = [array[j], array[i]]

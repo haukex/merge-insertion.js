@@ -14,19 +14,26 @@ take an async comparator function for this reason.
 
 ## Type Aliases
 
+### Comparable
+
+> **Comparable** = `NonNullable`\<`unknown`\>
+
+A type of object that can be compared by a `Comparator` and therefore sorted by `mergeInsertionSort`.
+Must have sensible support for the equality operators.
+
+***
+
 ### Comparator()
 
 > **Comparator**\<`T`\> = (`ab`) => `Promise`\<`0` \| `1`\>
 
-A function to compare two items.
+A user-supplied function to compare two items.
 
 #### Type Parameters
 
 ##### T
 
-`T` *extends* `NonNullable`\<`unknown`\>
-
-The type that this comparator can compare, which must have sensible support for the equality operators.
+`T` *extends* [`Comparable`](#comparable)
 
 #### Parameters
 
@@ -98,7 +105,7 @@ Async comparison function.
 
 `Promise`\<`T`[]\>
 
-The array sorted in ascending order.
+A shallow copy of the array sorted in ascending order.
 
 Author, Copyright and License
 -----------------------------
