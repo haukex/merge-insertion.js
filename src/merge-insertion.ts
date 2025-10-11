@@ -12,7 +12,7 @@
  * ```typescript
  * import { mergeInsertionSort, Comparator } from 'merge-insertion'
  *
- * // A Comparator should return 0 if the first item is larger, or 1 if the second item is larger.
+ * // A Comparator must return 0 if the first item is larger, or 1 if the second item is larger.
  * const comp :Comparator<string> = async ([a, b]) => a > b ? 0 : 1
  *
  * // Sort five items in ascending order with a maximum of only seven comparisons:
@@ -22,7 +22,7 @@
  * ### References
  *
  * 1. Ford, L. R., & Johnson, S. M. (1959). A Tournament Problem.
- *    The American Mathematical Monthly, 66(5), 387–389. <https://doi.org/10.1080/00029890.1959.11989306>
+ *    The American Mathematical Monthly, 66(5), 387-389. <https://doi.org/10.1080/00029890.1959.11989306>
  * 2. Knuth, D. E. (1998). The Art of Computer Programming: Volume 3: Sorting and Searching (2nd ed.).
  *    Addison-Wesley. <https://cs.stanford.edu/~knuth/taocp.html#vol3>
  * 3. <https://en.wikipedia.org/wiki/Merge-insertion_sort>
@@ -289,9 +289,8 @@ export function* xorshift32() :Generator<number, never, never> {
  * 2. Durstenfeld, R. (1964). Algorithm 235: Random permutation. Communications of the ACM, 7(7), 420. doi:10.1145/364520.364540
  *
  * @param random Generator that returns random integers in the range `0` (inclusive) and `>= array.length-1`.
- *  The default is {@link xorshift32} - which may not return integers big enough for very large arrays!
  * @internal */
-export function fisherYates(array :unknown[], random :Generator<number> = xorshift32()) {
+export function fisherYates(array :unknown[], random :Generator<number>) {
   for (let i=array.length-1; i>0; i--) {
     const j = random.next().value % array.length;
     [array[i], array[j]] = [array[j], array[i]]

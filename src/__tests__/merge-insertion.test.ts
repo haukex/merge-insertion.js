@@ -273,9 +273,9 @@ describe('fisherYates', () => {
     fisherYates(a, function* () { yield* [5, 1, 5, 0, 2, 2, 0]; throw new Error('no more values') }())
     expect(a).toStrictEqual(['G','E','D','C','A','H','B','F'])
   })
-  test('Using default random generator', () => {
+  test('Using xorshift32', () => {
     const a = ['A','B','C']
-    fisherYates(a)
+    fisherYates(a, xorshift32())
     expect(a).not.toStrictEqual(['A','B','C'])
   })
 })
@@ -307,9 +307,10 @@ describe('mergeInsertionSort', () => {
     ])
   })
 
-  test.each( Array.from({ length: 101 }, (_, i) => ({ len: i })) )('array length $len', async ({len}) => {
-    const array :Readonly<string[]> = Array.from({ length: len }, (_,i) => String.fromCharCode(65 + i))
+  test.each( Array.from({ length: 95 }, (_, i) => ({ len: i })) )('array length $len', async ({len}) => {
+    const array :Readonly<string[]> = Array.from({ length: len }, (_,i) => String.fromCharCode(33 + i))  // printable ASCII
     const a = Array.from(array)
+    const rand = xorshift32()
     try {
       // in order array
       expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
@@ -319,7 +320,7 @@ describe('mergeInsertionSort', () => {
       expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
       // several shuffles
       for (let i=0;i<100;i++) {
-        fisherYates(a)
+        fisherYates(a, rand)
         expect( await mergeInsertionSort(a, testComp(comp, mergeInsertionMaxComparisons(len))) ).toStrictEqual(array)
       }
     } catch (ex) {
