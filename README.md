@@ -12,7 +12,8 @@ take an async comparator function for this reason.
 ```typescript
 import { mergeInsertionSort, Comparator } from 'merge-insertion'
 
-// A Comparator should return 0 if the first item is larger, or 1 if the second item is larger.
+// A Comparator must return 0 if the first item is larger, or 1 if the second item is larger.
+// It can use any criteria for comparison, including user input, this is just a simple example:
 const comp :Comparator<string> = async ([a, b]) => a > b ? 0 : 1
 
 // Sort five items in ascending order with a maximum of only seven comparisons:
@@ -22,10 +23,17 @@ const sorted = await mergeInsertionSort(['D', 'A', 'B', 'E', 'C'], comp)
 ### References
 
 1. Ford, L. R., & Johnson, S. M. (1959). A Tournament Problem.
-   The American Mathematical Monthly, 66(5), 387–389. <https://doi.org/10.1080/00029890.1959.11989306>
+   The American Mathematical Monthly, 66(5), 387-389. <https://doi.org/10.1080/00029890.1959.11989306>
 2. Knuth, D. E. (1998). The Art of Computer Programming: Volume 3: Sorting and Searching (2nd ed.).
    Addison-Wesley. <https://cs.stanford.edu/~knuth/taocp.html#vol3>
 3. <https://en.wikipedia.org/wiki/Merge-insertion_sort>
+
+See Also
+--------
+
+* Python version: <https://pypi.org/project/merge-insertion/>
+
+* This algorithm in action: <https://haukex.github.io/pairrank/> (select "Efficient")
 
 ## Type Aliases
 
@@ -108,7 +116,7 @@ The type of the items to sort.
 
 readonly `T`[]
 
-Array of to sort. Duplicate items are not allowed.
+Array to sort. **Duplicate items are not allowed.**
 
 ##### comparator
 

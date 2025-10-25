@@ -13,6 +13,7 @@
  * import { mergeInsertionSort, Comparator } from 'merge-insertion'
  *
  * // A Comparator must return 0 if the first item is larger, or 1 if the second item is larger.
+ * // It can use any criteria for comparison, including user input, this is just a simple example:
  * const comp :Comparator<string> = async ([a, b]) => a > b ? 0 : 1
  *
  * // Sort five items in ascending order with a maximum of only seven comparisons:
@@ -26,6 +27,13 @@
  * 2. Knuth, D. E. (1998). The Art of Computer Programming: Volume 3: Sorting and Searching (2nd ed.).
  *    Addison-Wesley. <https://cs.stanford.edu/~knuth/taocp.html#vol3>
  * 3. <https://en.wikipedia.org/wiki/Merge-insertion_sort>
+ *
+ * See Also
+ * --------
+ *
+ * * Python version: <https://pypi.org/project/merge-insertion/>
+ *
+ * * This algorithm in action: <https://haukex.github.io/pairrank/> (select "Efficient")
  *
  * Author, Copyright and License
  * -----------------------------
@@ -77,7 +85,7 @@ export function* _groupSizes() :Generator<number, never, never> {
 }
 
 /** Helper function to group and reorder items to be inserted via binary search.
- * See also the description in the code of {@link mergeInsertionSort}.
+ * See also the description within the code of {@link mergeInsertionSort}.
  * @internal */
 export function _makeGroups<T>(array :ReadonlyArray<T>) :[origIdx :number, item :T][] {
   const items :ReadonlyArray<[number, T]> = array.map((e,i) => [i, e])
@@ -124,6 +132,7 @@ export async function _binInsertIdx<T extends Comparable>(array :ReadonlyArray<T
  * @returns A Promise resolving to a shallow copy of the array sorted in ascending order.
  */
 export async function mergeInsertionSort<T extends Comparable>(array :ReadonlyArray<T>, comparator :Comparator<T>) :Promise<T[]> {
+  // Special cases and error checking
   if (array.length<1) return []
   if (array.length==1) return Array.from(array)
   if (array.length != new Set(array).size) throw new Error('array may not contain duplicate items')
@@ -213,7 +222,7 @@ export async function mergeInsertionSort<T extends Comparable>(array :ReadonlyAr
       else {
         // Locate the pair we're about to insert in the main chain, to limit the extent of the binary search (see also explanation above).
         const pairIdx = mainChain.findIndex(v => Object.is(v, pair))
-        // Locate the index in the main chain where the pair's smaller item needs to be inserted, and insert it.
+        // Locate the index in the main chain where the pair's smaller item needs to be inserted.
         return [pair.smaller, await _binInsertIdx(mainChain.slice(0,pairIdx).map(p => p.item), pair.smaller, comparator)]
       }
     })()
@@ -235,7 +244,7 @@ export async function mergeInsertionSort<T extends Comparable>(array :ReadonlyAr
  */
 export function mergeInsertionMaxComparisons(n :number) :number {
   if (n<0) throw new Error('must specify zero or more items')
-  // formulas from https://en.wikipedia.org/wiki/Merge-insertion_sort (both of the following work):
+  // Formulas from https://en.wikipedia.org/wiki/Merge-insertion_sort (both of the following work):
   /*let C = 0
   for (let i=1; i<=n; i++)
     C += Math.ceil(Math.log2((3*i)/4))

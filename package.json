@@ -1,6 +1,6 @@
 {
   "name": "merge-insertion",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The merge-insertion sort (aka the Ford-Johnson algorithm) is optimized for using few comparisons.",
   "author": {
     "name": "Hauke Dämpfling",
@@ -9,6 +9,7 @@
   "license": "ISC",
   "repository": { "type": "git", "url": "https://github.com/haukex/merge-insertion.js.git" },
   "bugs": { "url": "https://github.com/haukex/merge-insertion.js/issues" },
+  "keywords": [ "merge-insertion-sort", "ford-johnson" ],
   "type": "module",
   "main": "dist/merge-insertion.js",
   "types": "dist/merge-insertion.d.ts",
