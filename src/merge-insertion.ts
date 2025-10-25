@@ -119,7 +119,7 @@ export async function _binInsertIdx<T extends Comparable>(array :ReadonlyArray<T
 /** Merge-Insertion Sort (Ford-Johnson algorithm) with async comparison.
  *
  * @typeParam T The type of the items to sort.
- * @param array Array of to sort. Duplicate items are not allowed.
+ * @param array Array to sort. **Duplicate items are not allowed.**
  * @param comparator Async comparison function.
  * @returns A Promise resolving to a shallow copy of the array sorted in ascending order.
  */
